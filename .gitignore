@@ -2,3 +2,6 @@
 /.vscode
 Cargo.lock
 /script
+
+# python
+py_rpc/venv

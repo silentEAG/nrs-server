@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package newsrecommend;
+
+service NewsRecommend {
+    rpc GetRecommendations(GetRecommendationsRequest) returns (GetRecommendationsResponse) {}
+    rpc AddUserInteraction(UserInteraction) returns (AddUserInteractionResponse) {}
+}
+
+message GetRecommendationsRequest {
+    string user_id = 1;
+    int32 num_recommendations = 2;
+}
+
+message GetRecommendationsResponse {
+    repeated string news_ids = 1;
+}
+
+message UserInteraction {
+    string user_id = 1;
+    string news_id = 2;
+    string interaction_type = 3;
+}
+
+message AddUserInteractionResponse {
+    string message = 1;
+}
