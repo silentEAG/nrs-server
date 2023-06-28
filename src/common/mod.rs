@@ -11,8 +11,10 @@ pub struct ErrorMessage {
 }
 
 impl ErrorMessage {
-    pub fn new(msg: String) -> Self {
-        Self { message: msg }
+    pub fn new<T: ToString>(msg: T) -> Self {
+        Self {
+            message: msg.to_string(),
+        }
     }
 }
 

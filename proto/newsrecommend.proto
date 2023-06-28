@@ -1,0 +1,44 @@
+syntax = "proto3";
+package newsrecommend;
+
+service NewsRecommend {
+    rpc RunTrainModel(RunTrainModelRequestList) returns (RunTrainModelResponseList) {}
+    rpc GetRecommendations(GetRecommendationsRequest) returns (GetRecommendationsResponse) {}
+}
+
+message RunTrainModelRequestList {
+    repeated RunTrainModelRequest train_model_data = 1;
+}
+
+message RunTrainModelRequest {
+    int32 user_id = 1;
+    int32 tag_id = 2;
+    double weight = 3;
+    int64 time = 4;
+}
+
+message RunTrainModelResponseList {
+    repeated RunTrainModelResponse update_data = 1;
+}
+
+message RunTrainModelResponse {
+    int32 user_id = 1;
+    int32 tag_id = 2;
+    double weight = 3;
+}
+
+
+
+message GetRecommendationsRequest {
+    int32 user_id = 1;
+    int32 tag_id = 2;
+    double weight = 3;
+    int64 time = 4;
+}
+
+message GetRecommendationsResponse {
+    int32 user_id = 1;
+    int32 tag_id = 2;
+    double weight = 3;
+}
+

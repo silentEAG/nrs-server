@@ -2,3 +2,6 @@
 /.vscode
 Cargo.lock
 /script
+/logs
+cloc*
+/postgresql/data

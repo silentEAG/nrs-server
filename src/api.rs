@@ -11,7 +11,7 @@ use crate::{
         object::{self, news, user},
         ApiResult, NoData,
     },
-    config::{AppAuthorization, ServerKey, API_KEY},
+    config::{AppAuthorization, ServerKey, CONFIG},
     controller,
 };
 
@@ -118,7 +118,7 @@ impl AdminApi {
         Query(user_id): Query<i32>,
         #[oai(name = "ADMIN-TOKEN")] token: Header<String>,
     ) -> ApiResult<user::InfoResponse> {
-        if token.0 != API_KEY {
+        if token.0 != CONFIG.server.api_key {
             return Err(crate::common::ApiError::AdminAuthFailed);
         }
         controller::admin::get_user_by_id(pool, user_id).await
@@ -128,14 +128,14 @@ impl AdminApi {
     #[oai(path = "/createnews", method = "post", tag = "ApiTags::Admin")]
     async fn create_news(
         &self,
-        news: Json<object::news::CreateNewsRequest>,
+        Data(pool): Data<&DbPool>,
+        Json(news): Json<object::news::CreateNewsRequest>,
         #[oai(name = "ADMIN-TOKEN")] token: Header<String>,
-    ) -> ApiResult<Vec<user::InfoResponse>> {
-        if token.0 != API_KEY {
+    ) -> ApiResult<NoData> {
+        if token.0 != CONFIG.server.api_key {
             return Err(crate::common::ApiError::AdminAuthFailed);
         }
-        // TODO
-        unimplemented!()
+        controller::admin::create_news(pool, news).await
     }
 }
 
@@ -144,23 +144,33 @@ impl AdminApi {
 impl NewsApi {
     /// 用户获取推荐新闻路由，需要用户认证
     #[oai(path = "/recommend", method = "get", tag = "ApiTags::News")]
-    async fn recommend(&self, auth: AppAuthorization) -> ApiResult<Vec<news::AbstractResponse>> {
-        unimplemented!()
+    async fn recommend(&self,
+        Data(pool): Data<&DbPool>,
+        auth: AppAuthorization
+    ) -> ApiResult<Vec<news::AbstractResponse>> {
+        controller::news::recommend(pool, auth.0.id).await
     }
 
     /// 获取指定新闻路由，需要用户认证
     #[oai(path = "/get", method = "get", tag = "ApiTags::News")]
     async fn get(
         &self,
-        news_id: Query<String>,
+        Data(pool): Data<&DbPool>,
+        Query(news_id): Query<i32>,
         auth: AppAuthorization,
     ) -> ApiResult<news::DetailResponse> {
-        unimplemented!()
+        controller::news::get(pool, auth.0.id, news_id).await
     }
 
     /// like 指定新闻路由，需要用户认证
     #[oai(path = "/like", method = "get", tag = "ApiTags::News")]
-    async fn like(&self, news_id: Query<String>, auth: AppAuthorization) -> ApiResult<NoData> {
-        unimplemented!()
+    async fn like(
+        &self,
+        Data(pool): Data<&DbPool>,
+        Query(news_id): Query<i32>,
+        auth: AppAuthorization
+    ) -> ApiResult<NoData> {
+        // TODO: 非在也返回200
+        controller::news::like(pool, auth.0.id, news_id).await
     }
 }

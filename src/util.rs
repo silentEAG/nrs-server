@@ -1,4 +1,6 @@
-use crate::config::SALT;
+use crate::config::CONFIG;
+
+
 
 // TOO SLOW!!!
 pub fn calc_password_hash(password: &str, dyn_salt: &str) -> String {
@@ -7,7 +9,7 @@ pub fn calc_password_hash(password: &str, dyn_salt: &str) -> String {
     argon2
         .hash_password_into(
             password.as_bytes(),
-            &[dyn_salt.as_bytes(), SALT].concat(),
+            &[dyn_salt.as_bytes(), CONFIG.server.salt.as_bytes()].concat(),
             &mut output_hash,
         )
         .unwrap();

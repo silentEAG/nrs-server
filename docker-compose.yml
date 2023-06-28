@@ -1,11 +1,5 @@
 version: '3'
 services:
-  # redis:
-  #   image: 'redis:alpine'
-  #   volumes:
-  #     - 'redis_data:./redis/data'
-  #   ports:
-  #     - '6379:6379'
   db:
     image: 'postgres:latest'
     environment:
@@ -15,4 +9,14 @@ services:
     ports:
       - '5432:5432'
     volumes:
-      - ./postgresql/create-1.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./postgresql/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./postgresql/data:/var/lib/postgresql/data
+  app:
+    build: ./
+    depends_on:
+      - db
+    ports:
+      - '3000:3000'
+    volumes:
+      - ./app_logs:/app/logs
+  

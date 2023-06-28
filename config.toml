@@ -1,0 +1,17 @@
+[common]
+model_addr = "model:8080"
+log_level = "DEBUG"
+
+[server]
+api_port = 3000
+log_file = "server.log"
+api_key = "SNn0TR#*N0f#JDMWsdmiwan3dj2d2k3d"
+salt = "Nekopara114514"
+server_key = "0237jfH#f3h289f3j0"
+
+[database]
+user_name = "news_recommender"
+password = "nekopara"
+host = "127.0.0.1"
+port = "5432"
+db = "news_recommend"

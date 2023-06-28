@@ -11,7 +11,7 @@ use crate::{
         },
         ApiError, ApiResult, ErrorMessage, NoData,
     },
-    config::{ServerKey, SALT, SERVER_KEY},
+    config::ServerKey,
     util::calc_password_hash,
 };
 
@@ -26,7 +26,7 @@ pub async fn register(pool: &DbPool, user: RegisterRequest) -> ApiResult<NoData>
             return Err(ApiError::UserAlreadyExists);
         }
         Err(e) => {
-            return Err(ApiError::DBError(Json(ErrorMessage::new(e.to_string()))));
+            return Err(ApiError::DBError(Json(ErrorMessage::new(e))));
         }
         _ => {}
     }
@@ -51,7 +51,7 @@ pub async fn register(pool: &DbPool, user: RegisterRequest) -> ApiResult<NoData>
     debug!("{} is finishing register", username);
     match data::user::insert_new_user(pool, username, password_hash, sex, age).await {
         Ok(_) => Ok(Json(NoData {})),
-        Err(e) => Err(ApiError::DBError(Json(ErrorMessage::new(e.to_string())))),
+        Err(e) => Err(ApiError::DBError(Json(ErrorMessage::new(e)))),
     }
 }
 
@@ -119,7 +119,7 @@ pub async fn get_history(pool: &DbPool, user_id: i32) -> ApiResult<object::user:
     let history = match data::user::get_history_by_user_id(pool, user_id).await {
         Ok(history) => history,
         Err(e) => {
-            return Err(ApiError::DBError(Json(ErrorMessage::new(e.to_string()))));
+            return Err(ApiError::DBError(Json(ErrorMessage::new(e))));
         }
     };
 
@@ -128,7 +128,7 @@ pub async fn get_history(pool: &DbPool, user_id: i32) -> ApiResult<object::user:
 
 /// 更新用户信息
 /// 1. 更新密码
-/// 2. 更新兴趣 tag （注：这里的 tag 更新是直接添加，如果有的话会直接更新 weight）
+/// 2. 更新兴趣 tag （注：这里的 tag 更新是表示对这个 tag 感兴趣，将 weight 增加到 5）
 pub async fn update(
     pool: &DbPool,
     user_id: i32,
@@ -138,22 +138,22 @@ pub async fn update(
     let user = match data::user::find_by_id(pool, user_id).await {
         Ok(user) => user,
         Err(e) => {
-            return Err(ApiError::DBError(Json(ErrorMessage::new(e.to_string()))));
+            return Err(ApiError::DBError(Json(ErrorMessage::new(e))));
         }
     };
 
     // 事务开始
-    let tx = pool.begin().await.unwrap();
+    let mut tx = pool.begin().await.unwrap();
 
-    // 更新兴趣 tag（直接添加）
+    // 更新兴趣 tag（即表示对这个 tag 感兴趣）
     if let Some(interests) = user_update.interests {
-        data::user::update_interests_by_id(pool, user_id, interests).await?;
+        data::user::update_interests_by_id(&mut tx, user_id, interests, 5.0, true).await?;
     }
 
     // 更新密码
     if let Some(password) = user_update.password {
         let password_hash = calc_password_hash(&password, &user.username);
-        data::user::update_password_by_id(pool, user_id, password_hash)
+        data::user::update_password_by_id(&mut tx, user_id, password_hash)
             .await
             .map_err(|e| ApiError::UserUpdateFailed(Json(ErrorMessage::new(e.to_string()))))?;
     }
