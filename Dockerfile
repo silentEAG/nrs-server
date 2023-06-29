@@ -18,7 +18,11 @@ FROM ubuntu:22.04
 RUN apt update && apt upgrade -y
 RUN apt install -y protobuf-compiler libprotobuf-dev
 
+WORKDIR /app/
+
+# debug mode
 COPY --from=builder /appbuild/target/debug/server /app/server
+# release mode
 # COPY --from=builder /appbuild/target/release/server /app/server
 COPY config-docker.toml ./
 

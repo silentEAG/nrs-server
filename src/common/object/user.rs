@@ -65,7 +65,7 @@ pub struct HistoryResponse {
     pub news: Vec<news::AbstractResponse>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Object, PartialEq, Eq, Hash)]
 pub struct UserSign {
     pub id: i32,
     pub username: String,

@@ -1,15 +1,17 @@
-use crate::common::object::news::DetailResponse;
+use crate::common::object::news::{AbstractResponse, DetailResponse};
 
 use super::{DbPool, TransPool};
 
+/// 插入一条新闻
+/// - 新闻的 abstracts 为唯一键，若违反约束便停止插入
 pub async fn insert_new_news(
     pool: &mut TransPool<'_>,
-    title: String, // 新闻标题
-    content: String, // 新闻主要内容
+    title: String,             // 新闻标题
+    content: String,           // 新闻主要内容
     abstracts: Option<String>, // 新闻摘要，如果没有便选取内容的前100个字
-    source: String,// 新闻来源
-    tags: Vec<String>, // 新闻 tag
-    link: String // 新闻原链接
+    source: String,            // 新闻来源
+    tags: Vec<String>,         // 新闻 tag
+    link: String,              // 新闻原链接
 ) -> anyhow::Result<()> {
     let abstracts = match abstracts {
         Some(abstracts) => abstracts,
@@ -28,7 +30,11 @@ pub async fn insert_new_news(
             .bind(source)
             .bind(link)
             .fetch_one(&mut *pool)
-            .await?;
+            .await
+            .map_err(|e| {
+                tracing::error!("{}", e);
+                e
+            })?;
 
     tracing::info!("get news_id: {}", news_id);
 
@@ -69,7 +75,6 @@ pub async fn increase_like(pool: &DbPool, news_id: i32) -> anyhow::Result<()> {
 }
 
 pub async fn find_by_id(pool: &DbPool, news_id: i32) -> anyhow::Result<DetailResponse> {
-    println!("{}", news_id);
     let news = sqlx::query_as::<_, DetailResponse>(
         "SELECT news.id as news_id, news.title, news.content, news.source, news.create_time, news.likes as like, array_agg(news_tag.tag_name) as tags
         FROM news 
@@ -82,3 +87,64 @@ pub async fn find_by_id(pool: &DbPool, news_id: i32) -> anyhow::Result<DetailRes
         .await?;
     Ok(news)
 }
+
+pub async fn find_by_id_abstract(pool: &DbPool, news_id: i32) -> anyhow::Result<AbstractResponse> {
+    let news = sqlx::query_as::<_, AbstractResponse>(
+        "SELECT news.id as news_id, news.title, news.abstracts, news.source, news.create_time, news.likes as like, array_agg(news_tag.tag_name) as tags
+        FROM news 
+        LEFT JOIN news_tag 
+        ON news.id = news_tag.news_id 
+        WHERE news.id = $1 
+        GROUP BY news.id")
+        .bind(news_id)
+        .fetch_one(pool)
+        .await?;
+    Ok(news)
+}
+
+pub async fn find_by_tag_id(pool: &DbPool, tag_id: i32, per_limit: i32) -> anyhow::Result<Vec<AbstractResponse>> {
+    let news = sqlx::query_as::<_, AbstractResponse>(
+        "
+        SELECT news.id as news_id, news.title, news.abstracts, news.source, news.create_time, news.likes as like, array_agg(news_tag.tag_name) as tags
+        FROM news 
+        LEFT JOIN news_tag 
+        ON news.id = news_tag.news_id 
+        WHERE news.id IN 
+        (
+            SELECT DISTINCT news_tag.news_id
+            FROM news_tag 
+            WHERE news_tag.tag_name in (SELECT T.name FROM tag AS T WHERE T.id = $1)
+        )
+        GROUP BY news.id 
+        ORDER BY RANDOM()
+        LIMIT $2",
+    )
+    .bind(tag_id)
+    .bind(per_limit)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(news)
+}
+
+// pub async fn find_by_tag_id(pool: &DbPool, tag_id: i32) -> anyhow::Result<Vec<AbstractResponse>> {
+//     let news = sqlx::query_as::<_, (i32,)>(
+//         "SELECT DISTINCT news_tag.news_id
+//         FROM news_tag
+//         WHERE news_tag.tag_name in (SELECT T.name FROM tag AS T WHERE T.id = $1)",
+//     )
+//     .bind(tag_id)
+//     .fetch_all(pool)
+//     .await?
+//     .into_iter()
+//     .map(|(news_id,)| news_id);
+
+//     let mut result = Vec::new();
+
+//     for news_id in news {
+//         let news = find_by_id_abstract(pool, news_id).await?;
+//         result.push(news);
+//     }
+
+//     Ok(result)
+// }

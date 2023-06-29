@@ -1,8 +1,12 @@
 use poem_openapi::payload::Json;
-use serde::{Deserialize, Serialize};
 use tracing::error;
 
-use crate::{common::{object, ApiResult, NoData}, backend::TrainModelDataSend};
+use crate::{
+    common::{object, ApiResult, NoData},
+    rpc::recommend::{
+        GetWeightRequest, GetWeightRequestUnit, TrainModelRequest, TrainModelRequestUnit,
+    },
+};
 
 use super::{DbPool, TransPool};
 
@@ -91,7 +95,7 @@ pub async fn update_interests_by_id(
     user_id: i32,
     interests: Vec<String>,
     weight: f64,
-    change_time: bool
+    change_time: bool,
 ) -> ApiResult<NoData> {
     let mut error_array = Vec::new();
 
@@ -108,17 +112,17 @@ pub async fn update_interests_by_id(
                 VALUES ($1, $2, $3) 
                 ON CONFLICT (user_id, news_tag) DO 
                     UPDATE SET 
-                    weight = CASE WHEN interest.weight < $3 THEN $3 ELSE interest.weight END
+                    weight = $3,
                     last_view_time = now()
                 "
-            },
+            }
             false => {
                 "
                 INSERT INTO interest (user_id, news_tag, weight) 
                 VALUES ($1, $2, $3) 
                 ON CONFLICT (user_id, news_tag) DO 
                     UPDATE SET 
-                    weight = CASE WHEN interest.weight < $3 THEN $3 ELSE interest.weight END
+                    weight =$3
                 "
             }
         };
@@ -161,27 +165,26 @@ pub async fn get_interests_by_user_id(pool: &DbPool, user_id: i32) -> anyhow::Re
     Ok(result)
 }
 
-
-pub async fn get_train_model_data(pool: &DbPool) -> anyhow::Result<Vec<TrainModelDataSend>> {
-    let result = sqlx::query_as::<_, (i32, i32, f64, chrono::NaiveDateTime)>("
-        SELECT interest.user_id, tag.id as tag_id, interest.weight, interest.last_view_time as time
-        FROM interest, tag
-        WHERE tag.name = interest.news_tag")
-        .fetch_all(pool)
-        .await?
-        .into_iter()
-        .map(|(user_id, tag_id, weight, time)| {
-            TrainModelDataSend {
-                user_id,
-                tag_id,
-                weight,
-                time: time.timestamp(),
-            }
-        })
-        .collect::<Vec<TrainModelDataSend>>();
+/// 通过用户 id 获取用户兴趣 tag name
+pub async fn get_tag_id_by_user_id(pool: &DbPool, user_id: i32, limit: f64) -> anyhow::Result<Vec<i32>> {
+    let result = sqlx::query_as::<_, (i32,)>(
+        "
+        SELECT tag.id 
+        FROM interest, tag 
+        WHERE interest.user_id = $1 AND interest.news_tag = tag.name AND interest.weight >= $2 
+        ",
+    )
+    .bind(user_id)
+    .bind(limit)
+    .fetch_all(pool)
+    .await?
+    .into_iter()
+    .map(|(interest,)| interest)
+    .collect::<Vec<i32>>();
     Ok(result)
 }
 
+/// 通过用户 id 获取用户历史记录
 pub async fn get_history_by_user_id(
     pool: &DbPool,
     user_id: i32,
@@ -204,6 +207,7 @@ pub async fn get_history_by_user_id(
     Ok(historys)
 }
 
+/// 更新用户历史记录
 pub async fn update_history(
     pool: &mut TransPool<'_>,
     user_id: i32,
@@ -217,6 +221,46 @@ pub async fn update_history(
     Ok(())
 }
 
+/// 准备训练数据
+pub async fn get_train_model_data(pool: &DbPool) -> anyhow::Result<TrainModelRequest> {
+    let result = sqlx::query_as::<_, (i32, i32, f64)>(
+        "
+        SELECT interest.user_id, tag.id as tag_id, interest.weight
+        FROM interest, tag
+        WHERE tag.name = interest.news_tag",
+    )
+    .fetch_all(pool)
+    .await?
+    .into_iter()
+    .map(|(user_id, tag_id, weight)| TrainModelRequestUnit {
+        user_id,
+        tag_id,
+        rating: weight,
+    })
+    .collect::<Vec<TrainModelRequestUnit>>();
+    Ok(TrainModelRequest { request: result })
+}
+
+/// 准备更新权重数据
+pub async fn update_weight_data(pool: &DbPool) -> anyhow::Result<GetWeightRequest> {
+    let result: Vec<GetWeightRequestUnit> = sqlx::query_as::<_, (i32, i32, f64, chrono::NaiveDateTime)>(
+        "
+        SELECT interest.user_id, tag.id as tag_id, interest.weight, interest.last_view_time as time
+        FROM interest, tag
+        WHERE tag.name = interest.news_tag AND interest.weight > 0",
+    )
+    .fetch_all(pool)
+    .await?
+    .into_iter()
+    .map(|(user_id, tag_id, weight, time)| GetWeightRequestUnit {
+        user_id,
+        tag_id,
+        rating: weight,
+        last_view_time: time.timestamp(),
+    })
+    .collect::<Vec<GetWeightRequestUnit>>();
+    Ok(GetWeightRequest { request: result })
+}
 
 #[tokio::test]
 async fn test_send_train_model() {
@@ -226,7 +270,8 @@ async fn test_send_train_model() {
         .min_connections(5)
         .max_connections(15)
         .connect(&db_link)
-        .await.unwrap();
+        .await
+        .unwrap();
     let res = get_train_model_data(&pool).await.unwrap();
     println!("{:?}", res);
 }

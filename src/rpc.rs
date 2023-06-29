@@ -1,35 +1,40 @@
-use tracing::info;
+use crate::common::data::RpcClient;
 
-use crate::{backend::{TrainModelDataSend, TrainModelDataRecv}, config::CONFIG, rpc::recommend_algorithm::{RunTrainModelRequestList, RunTrainModelRequest}};
+use self::recommend::{
+    GetWeightRequest, GetWeightResponse, ItemCfRequest, ItemCfResponse, TrainModelRequest,
+    UserCfRequest, UserCfResponse,
+};
 
-
-pub mod recommend_algorithm {
+pub mod recommend {
     tonic::include_proto!("newsrecommend");
 }
 
-impl From<TrainModelDataSend> for recommend_algorithm::RunTrainModelRequest {
-    fn from(data: TrainModelDataSend) -> Self {
-        Self {
-            user_id: data.user_id,
-            tag_id: data.tag_id,
-            weight: data.weight,
-            time: data.time,
-        }
+pub async fn get_weight(
+    client: &mut RpcClient,
+    request: GetWeightRequest,
+) -> anyhow::Result<GetWeightResponse> {
+    for x in &request.request {
+        tracing::info!("GetWeight user_id: {} - tag_id: {} - weight: {} - time: {}", x.user_id, x.tag_id, x.rating, x.last_view_time);
     }
+    Ok(client.get_weight(request).await?.into_inner())
 }
 
-pub async fn train_model(send_data: Vec<TrainModelDataSend>) -> anyhow::Result<Vec<TrainModelDataRecv>> {
-    let rpc_url = format!("http://{}", CONFIG.common.model_addr);
-    info!("Send RPC request to {}", rpc_url);
-    let mut client = recommend_algorithm::news_recommend_client::NewsRecommendClient::connect(rpc_url).await?;
-    let send_data = RunTrainModelRequestList {
-        train_model_data: send_data.into_iter().map(|data| data.into()).collect::<Vec<RunTrainModelRequest>>(),
-    };
-    let recv_data = client.run_train_model(send_data).await?;
-    let recv_data = recv_data.into_inner().update_data.into_iter().map(|data| Ok(TrainModelDataRecv {
-        user_id: data.user_id,
-        tag_id: data.tag_id,
-        weight: data.weight,
-    })).collect::<anyhow::Result<Vec<TrainModelDataRecv>>>()?;
-    Ok(recv_data)
+pub async fn train_model(client: &mut RpcClient, request: TrainModelRequest) -> anyhow::Result<()> {
+    client.train_model(request).await?;
+    Ok(())
+}
+
+pub async fn get_recommend_tags(
+    client: &mut RpcClient,
+    request: UserCfRequest,
+) -> anyhow::Result<UserCfResponse> {
+    tracing::info!("{:?}", request);
+    Ok(client.get_recommend_tags(request).await?.into_inner())
+}
+
+pub async fn get_recommend_users(
+    client: &mut RpcClient,
+    request: ItemCfRequest,
+) -> anyhow::Result<ItemCfResponse> {
+    Ok(client.get_recommend_users(request).await?.into_inner())
 }

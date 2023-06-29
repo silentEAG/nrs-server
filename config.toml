@@ -1,6 +1,6 @@
 [common]
-model_addr = "model:8080"
-log_level = "DEBUG"
+model_addr = "10.21.156.11:50001"
+log_level = "ERROR"
 
 [server]
 api_port = 3000

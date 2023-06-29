@@ -1,17 +1,24 @@
+use std::collections::HashSet;
+
 use jwt::SignWithKey;
 use poem_openapi::payload::Json;
+use rand::seq::IteratorRandom;
 use tracing::debug;
 
 use crate::{
     common::{
-        data::{self, user, DbPool},
+        data::{self, DbPool},
         object::{
             self,
             user::{LoginRequest, LoginSuccess, RegisterRequest, UserSign},
         },
         ApiError, ApiResult, ErrorMessage, NoData,
     },
-    config::ServerKey,
+    config::{ServerKey, CONFIG},
+    rpc::{
+        self,
+        recommend::{news_recommend_client::NewsRecommendClient, ItemCfRequest},
+    },
     util::calc_password_hash,
 };
 
@@ -160,4 +167,51 @@ pub async fn update(
 
     tx.commit().await.unwrap();
     Ok(Json(NoData {}))
+}
+
+/// 通过用户 id 的兴趣 tag 来推送相关用户
+pub async fn connect(pool: &DbPool, user_id: i32, limit: i32) -> ApiResult<Vec<UserSign>> {
+    let tag_ids = data::user::get_tag_id_by_user_id(pool, user_id, -1.0)
+        .await
+        .map_err(|e| ApiError::DBError(Json(ErrorMessage::new(e))))?;
+
+    if tag_ids.len() == 0 {
+        return Err(ApiError::NoRecommendUserFound);
+    }
+
+    // 获取 RPC Client
+    let rpc_url = format!("http://{}", CONFIG.common.model_addr);
+    let mut rpc_client = NewsRecommendClient::connect(rpc_url)
+        .await
+        .map_err(|e| crate::common::ApiError::Error(Json(ErrorMessage::new(e))))?;
+
+
+    let response = rpc::get_recommend_users(
+        &mut rpc_client,
+        ItemCfRequest {
+            tag_id: tag_ids,
+            num: limit,
+        },
+    )
+    .await
+    .map_err(|e| crate::common::ApiError::RPCError(Json(ErrorMessage::new(e))))?;
+
+    let mut users = Vec::new();
+
+    for item in response.response {
+        for user_id in item.user_id {
+            let user = data::user::find_by_id(pool, user_id)
+                .await
+                .map_err(|e| ApiError::DBError(Json(ErrorMessage::new(e))))?;
+            users.push(UserSign::from(user));
+        }
+    }
+
+    Ok(Json(
+        users
+            .drain(..)
+            .collect::<HashSet<UserSign>>()
+            .into_iter()
+            .choose_multiple(&mut rand::thread_rng(), limit as usize),
+    ))
 }

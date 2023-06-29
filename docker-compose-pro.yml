@@ -1,0 +1,22 @@
+version: '3'
+services:
+  db:
+    image: 'postgres:latest'
+    environment:
+      POSTGRES_DB: news_recommend
+      POSTGRES_USER: news_recommender
+      POSTGRES_PASSWORD: nekopara
+    ports:
+      - '5432:5432'
+    volumes:
+      - ./postgresql/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./postgresql/data:/var/lib/postgresql/data
+  app:
+    build: ./
+    depends_on:
+      - db
+    ports:
+      - '3000:3000'
+    volumes:
+      - ./app_logs:/app/logs
+  

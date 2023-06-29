@@ -3,8 +3,8 @@ use jwt::VerifyWithKey;
 use once_cell::sync::Lazy;
 use poem::Request;
 use poem_openapi::{auth::ApiKey, SecurityScheme};
-use sha2::Sha256;
 use serde::{Deserialize, Serialize};
+use sha2::Sha256;
 use std::{
     io::{Read, Write},
     path::PathBuf,
@@ -51,14 +51,14 @@ pub struct Database {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Common {
     pub model_addr: String,
-    pub log_level: String
+    pub log_level: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Config {
     pub common: Common,
     pub server: Server,
-    pub database: Database
+    pub database: Database,
 }
 
 impl Default for Config {
@@ -67,7 +67,7 @@ impl Default for Config {
         Self {
             common: Common {
                 model_addr: "model:8080".into(),
-                log_level: "DEBUG".into()
+                log_level: "DEBUG".into(),
             },
             server: Server {
                 api_port: 3000,
@@ -81,8 +81,8 @@ impl Default for Config {
                 password: "nekopara".into(),
                 host: "127.0.0.1".into(),
                 port: "5432".into(),
-                db: "news_recommend".into()
-            }
+                db: "news_recommend".into(),
+            },
         }
     }
 }

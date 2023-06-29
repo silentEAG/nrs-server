@@ -7,17 +7,19 @@ use sqlx::postgres::PgPoolOptions;
 use tracing::info;
 
 use crate::{
-    api::{AdminApi, CommonApi, NewsApi, UserApi}, backend, config::CONFIG,
+    api::{AdminApi, CommonApi, NewsApi, UserApi},
+    backend,
+    config::CONFIG,
 };
 
 pub async fn run() -> anyhow::Result<()> {
-
     info!("Starting news recommend system server (NRS-Server)");
 
     info!("Starting to connect to database");
 
     // 初始化数据库连接池
-    let database_url = format!("postgres://{}:{}@{}:{}/{}",
+    let database_url = format!(
+        "postgres://{}:{}@{}:{}/{}",
         CONFIG.database.user_name,
         CONFIG.database.password,
         CONFIG.database.host,
@@ -53,8 +55,7 @@ pub async fn run() -> anyhow::Result<()> {
     let spec = api_service.spec();
 
     // 初始化 API 路由
-    let router = Route::new()
-        .nest("/api", api_service);
+    let router = Route::new().nest("/api", api_service);
 
     // 仅在开发环境下开放 api 路由
     #[cfg(debug_assertions)]
@@ -67,7 +68,6 @@ pub async fn run() -> anyhow::Result<()> {
         .with(poem::middleware::Tracing)
         .data(pool)
         .data(server_key);
-
 
     // 启动服务器
     let server_url = format!("0.0.0.0:{}", CONFIG.server.api_port);

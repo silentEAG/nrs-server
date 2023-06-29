@@ -1,7 +1,5 @@
 use crate::config::CONFIG;
 
-
-
 // TOO SLOW!!!
 pub fn calc_password_hash(password: &str, dyn_salt: &str) -> String {
     let argon2 = argon2::Argon2::default();

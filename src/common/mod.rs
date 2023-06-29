@@ -61,6 +61,14 @@ pub enum ApiError {
     #[oai(status = 857)]
     TagQueryError(Json<ErrorMessage>),
 
+    /// RPC错误
+    #[oai(status = 858)]
+    RPCError(Json<ErrorMessage>),
+
+    /// 没有找到推荐的用户
+    #[oai(status = 859)]
+    NoRecommendUserFound,
+
     /// 其他错误
     #[oai(status = 860)]
     Error(Json<ErrorMessage>),

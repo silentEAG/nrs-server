@@ -1,44 +1,73 @@
 syntax = "proto3";
+
 package newsrecommend;
 
 service NewsRecommend {
-    rpc RunTrainModel(RunTrainModelRequestList) returns (RunTrainModelResponseList) {}
-    rpc GetRecommendations(GetRecommendationsRequest) returns (GetRecommendationsResponse) {}
+    rpc GetRecommendUsers(ItemCFRequest) returns (ItemCFResponse) {}
+    rpc GetRecommendTags(UserCFRequest) returns (UserCFResponse) {}
+    rpc GetWeight(GetWeightRequest) returns (GetWeightResponse) {}
+    rpc TrainModel(TrainModelRequest) returns (TrainModelRequest) {}
 }
 
-message RunTrainModelRequestList {
-    repeated RunTrainModelRequest train_model_data = 1;
-}
-
-message RunTrainModelRequest {
+message GetWeightRequestUnit {
     int32 user_id = 1;
     int32 tag_id = 2;
-    double weight = 3;
-    int64 time = 4;
+    double rating = 3;
+    int64 last_view_time = 4;
 }
 
-message RunTrainModelResponseList {
-    repeated RunTrainModelResponse update_data = 1;
-}
-
-message RunTrainModelResponse {
-    int32 user_id = 1;
-    int32 tag_id = 2;
-    double weight = 3;
+message GetWeightRequest {
+    repeated GetWeightRequestUnit request = 1;
 }
 
 
-
-message GetRecommendationsRequest {
-    int32 user_id = 1;
-    int32 tag_id = 2;
-    double weight = 3;
-    int64 time = 4;
-}
-
-message GetRecommendationsResponse {
+message GetWeightResponseUnit {
     int32 user_id = 1;
     int32 tag_id = 2;
     double weight = 3;
 }
 
+message GetWeightResponse {
+    repeated GetWeightResponseUnit response = 1;
+}
+
+
+message TrainModelRequestUnit {
+    int32 user_id = 1;
+    int32 tag_id = 2;
+    double rating = 3;
+}
+
+message TrainModelRequest {
+    repeated TrainModelRequestUnit request = 1;
+}
+
+
+message UserCFRequest {
+    repeated int32 user_id = 1;
+    int32 num = 2;
+}
+
+message UserCFResponseUnit {
+    int32 user_id = 1;
+    repeated int32 tag_id = 2;
+}
+
+message ItemCFRequest {
+    repeated int32 tag_id = 1;
+    int32 num = 2;
+}
+
+message ItemCFResponseUnit {
+    int32 tag_id = 1;
+    repeated int32 user_id = 2;
+}
+
+
+message UserCFResponse {
+    repeated UserCFResponseUnit response = 1;
+}
+
+message ItemCFResponse {
+    repeated ItemCFResponseUnit response = 1;
+}

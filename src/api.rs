@@ -1,4 +1,4 @@
-use poem::{web::Data, Endpoint};
+use poem::web::Data;
 use poem_openapi::{
     param::{Header, Query},
     payload::Json,
@@ -8,7 +8,11 @@ use poem_openapi::{
 use crate::{
     common::{
         data::DbPool,
-        object::{self, news, user},
+        object::{
+            self,
+            news::{self, RandomTagResponse},
+            user,
+        },
         ApiResult, NoData,
     },
     config::{AppAuthorization, ServerKey, CONFIG},
@@ -105,12 +109,24 @@ impl UserApi {
     ) -> ApiResult<user::HistoryResponse> {
         controller::user::get_history(pool, auth.0.id).await
     }
+
+    /// 通过 user 自己的 tag 去发现相似的人，需要 user 认证
+    #[oai(path = "/connect", method = "get", tag = "ApiTags::User")]
+    async fn connect(
+        &self,
+        Data(pool): Data<&DbPool>,
+        Query(limit): Query<Option<i32>>,
+        auth: AppAuthorization,
+    ) -> ApiResult<Vec<user::UserSign>> {
+        controller::user::connect(pool, auth.0.id, limit.unwrap_or(10)).await
+    }
 }
 
 /// Admin 路由
 #[OpenApi(prefix_path = "/admin")]
 impl AdminApi {
     /// 指定用户信息路由，需要 admin 认证
+    /// - user_id: 用户 id
     #[oai(path = "/userinfo", method = "get", tag = "ApiTags::Admin")]
     async fn user_info(
         &self,
@@ -143,15 +159,19 @@ impl AdminApi {
 #[OpenApi(prefix_path = "/news")]
 impl NewsApi {
     /// 用户获取推荐新闻路由，需要用户认证
+    /// - limit: 获取新闻数量，默认为 20
     #[oai(path = "/recommend", method = "get", tag = "ApiTags::News")]
-    async fn recommend(&self,
+    async fn recommend(
+        &self,
         Data(pool): Data<&DbPool>,
-        auth: AppAuthorization
+        Query(limit): Query<Option<i32>>,
+        auth: AppAuthorization,
     ) -> ApiResult<Vec<news::AbstractResponse>> {
-        controller::news::recommend(pool, auth.0.id).await
+        controller::news::recommend_by_user_ids(pool, vec![auth.0.id], limit.unwrap_or(20)).await
     }
 
-    /// 获取指定新闻路由，需要用户认证
+    /// 获取指定新闻路由，需要用户认证。
+    /// - news_id: 新闻 id
     #[oai(path = "/get", method = "get", tag = "ApiTags::News")]
     async fn get(
         &self,
@@ -163,14 +183,27 @@ impl NewsApi {
     }
 
     /// like 指定新闻路由，需要用户认证
+    /// - news_id: 新闻 id
     #[oai(path = "/like", method = "get", tag = "ApiTags::News")]
     async fn like(
         &self,
         Data(pool): Data<&DbPool>,
         Query(news_id): Query<i32>,
-        auth: AppAuthorization
+        auth: AppAuthorization,
     ) -> ApiResult<NoData> {
         // TODO: 非在也返回200
         controller::news::like(pool, auth.0.id, news_id).await
+    }
+
+    /// 获取随机 tag，需要用户认证
+    /// - limit: 获取 tag 数量，默认为 20
+    #[oai(path = "/randomtag", method = "get", tag = "ApiTags::News")]
+    async fn random_tag(
+        &self,
+        Data(pool): Data<&DbPool>,
+        Query(limit): Query<Option<i32>>,
+        _auth: AppAuthorization,
+    ) -> ApiResult<RandomTagResponse> {
+        controller::news::get_random_tags(pool, limit.unwrap_or(20)).await
     }
 }

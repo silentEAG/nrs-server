@@ -25,7 +25,7 @@ pub async fn create_news(
         news.abstracts,
         news.source,
         news.tags,
-        news.link
+        news.link,
     )
     .await
     {
